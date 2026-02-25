@@ -17,18 +17,64 @@ function periodLabel(period: number): string {
   return `${period - 2}OT`;
 }
 
-function teamDisplay(
-  name: string,
-  ranking: number | null | undefined,
-  score: number | undefined,
-  isWinning: boolean
-) {
+function formatTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+  });
+}
+
+function formatRecord(record: { wins: number; losses: number } | null | undefined): string | null {
+  if (!record) return null;
+  return `${record.wins}-${record.losses}`;
+}
+
+interface HeroTeamRowProps {
+  name: string;
+  ranking?: number | null;
+  logoUrl?: string | null;
+  record?: { wins: number; losses: number } | null;
+  score?: number;
+  isWinning: boolean;
+}
+
+function HeroTeamRow({ name, ranking, logoUrl, record, score, isWinning }: HeroTeamRowProps) {
+  const recordStr = formatRecord(record);
+
   return (
-    <div className={clsx("flex items-center justify-between gap-3", isWinning ? "text-white" : "text-zinc-400")}>
-      <span className="font-semibold text-lg truncate">
-        {ranking && ranking <= 25 ? `#${ranking} ` : ""}
-        {name}
-      </span>
+    <div className={clsx("flex items-center gap-3", isWinning ? "text-white" : "text-zinc-400")}>
+      {/* Logo */}
+      <div className="shrink-0 w-9 h-9 flex items-center justify-center">
+        {logoUrl ? (
+          <img
+            src={logoUrl}
+            alt={`${name} logo`}
+            className="w-9 h-9 object-contain"
+          />
+        ) : (
+          <span className="text-sm font-bold bg-zinc-800 rounded-full w-9 h-9 flex items-center justify-center text-zinc-400">
+            {name.charAt(0)}
+          </span>
+        )}
+      </div>
+
+      {/* Ranking + Name + Record */}
+      <div className="flex-1 min-w-0">
+        <span className="font-semibold text-lg truncate">
+          {ranking && ranking <= 25 ? (
+            <span className={clsx("font-bold mr-0.5", isWinning ? "text-orange-400" : "text-orange-500/60")}>
+              #{ranking}{" "}
+            </span>
+          ) : null}
+          {name}
+        </span>
+        {recordStr && (
+          <span className="ml-2 text-sm text-zinc-500">{recordStr}</span>
+        )}
+      </div>
+
+      {/* Score */}
       {score !== undefined && (
         <span className="text-2xl font-bold tabular-nums shrink-0">{score}</span>
       )}
@@ -57,28 +103,63 @@ export function HeroCard({ game, watchScore, onExpand }: HeroCardProps) {
               {ls.leadChanges > 0 ? ` · ${ls.leadChanges} lead changes` : ""}
             </div>
           )}
+          {!isLive && game.status === "SCHEDULED" && (
+            <div className="text-xs text-zinc-400">
+              {formatTime(game.scheduledAt)}
+            </div>
+          )}
         </div>
         <ScoreBadge score={watchScore.score} size="lg" />
       </div>
 
       {/* Teams */}
-      <div className="space-y-2 mb-4">
-        {teamDisplay(
-          game.awayTeam.canonicalName,
-          game.awayTeamRanking,
-          ls?.awayScore,
-          homeWinning === false
-        )}
-        {teamDisplay(
-          game.homeTeam.canonicalName,
-          game.homeTeamRanking,
-          ls?.homeScore,
-          homeWinning === true
-        )}
+      <div className="space-y-2.5 mb-4">
+        <HeroTeamRow
+          name={game.awayTeam.canonicalName}
+          ranking={game.awayTeamRanking}
+          logoUrl={game.awayTeam.logoUrl}
+          record={game.awayTeamRecord}
+          score={ls?.awayScore}
+          isWinning={homeWinning === false}
+        />
+        <HeroTeamRow
+          name={game.homeTeam.canonicalName}
+          ranking={game.homeTeamRanking}
+          logoUrl={game.homeTeam.logoUrl}
+          record={game.homeTeamRecord}
+          score={ls?.homeScore}
+          isWinning={homeWinning === true}
+        />
       </div>
 
-      {/* Explanation */}
-      <p className="text-sm text-zinc-300 mb-3">{watchScore.explanation}</p>
+      {/* Pregame prediction strip */}
+      {!isLive && game.pregamePrediction && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs mb-3 py-2 border-t border-zinc-800/60">
+          <span className="text-zinc-500">
+            Thrill{" "}
+            <span className="text-orange-400 font-semibold">
+              {game.pregamePrediction.thrillScore}
+            </span>
+          </span>
+          {(game.pregamePrediction.homeScore > 0 || game.pregamePrediction.awayScore > 0) && (
+            <span className="text-zinc-500 tabular-nums">
+              Predicted{" "}
+              <span className="text-zinc-300">
+                {game.awayTeam.canonicalName.split(" ")[0]} {game.pregamePrediction.awayScore}
+                {" – "}
+                {game.pregamePrediction.homeScore} {game.homeTeam.canonicalName.split(" ")[0]}
+              </span>
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Explanation / why it matters */}
+      <p className="text-sm text-zinc-300 mb-3">
+        {isLive
+          ? (game.liveContext?.whyItMatters ?? watchScore.explanation)
+          : (game.pregamePrediction?.whyItMatters ?? watchScore.explanation)}
+      </p>
 
       {/* Factor chips */}
       <div className="flex flex-wrap gap-1.5 mb-4">

@@ -26,6 +26,11 @@ function formatTime(iso: string): string {
   });
 }
 
+function formatRecord(record: { wins: number; losses: number } | null | undefined): string | null {
+  if (!record) return null;
+  return `${record.wins}-${record.losses}`;
+}
+
 const FACTOR_DESCRIPTIONS: Record<string, string> = {
   closeness: "How close the score is. Tied games score highest.",
   time_remaining: "How late in the game it is. Final minutes score highest.",
@@ -38,6 +43,9 @@ const FACTOR_DESCRIPTIONS: Record<string, string> = {
 export function GameDrawer({ game, watchScore, onClose }: GameDrawerProps) {
   const isLive = ["IN_PROGRESS", "HALFTIME"].includes(game.status);
   const ls = game.liveState;
+
+  const awayRecord = formatRecord(game.awayTeamRecord);
+  const homeRecord = formatRecord(game.homeTeamRecord);
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
@@ -57,17 +65,56 @@ export function GameDrawer({ game, watchScore, onClose }: GameDrawerProps) {
           ✕
         </button>
 
-        {/* Header */}
+        {/* Header — teams with logos, records */}
         <div>
-          <div className="text-xs text-zinc-500 uppercase tracking-wider mb-1">
+          <div className="text-xs text-zinc-500 uppercase tracking-wider mb-2">
             {isLive ? "Live" : formatTime(game.scheduledAt)}
           </div>
-          <h2 className="text-lg font-bold text-white">
-            {game.awayTeam.canonicalName} @ {game.homeTeam.canonicalName}
-          </h2>
+
+          <div className="space-y-2">
+            {/* Away team */}
+            <div className="flex items-center gap-2">
+              {game.awayTeam.logoUrl && (
+                <img
+                  src={game.awayTeam.logoUrl}
+                  alt={`${game.awayTeam.canonicalName} logo`}
+                  className="w-7 h-7 object-contain shrink-0"
+                />
+              )}
+              <span className="font-bold text-base text-white">
+                {game.awayTeamRanking && game.awayTeamRanking <= 25 ? (
+                  <span className="text-orange-400">#{game.awayTeamRanking} </span>
+                ) : null}
+                {game.awayTeam.canonicalName}
+              </span>
+              {awayRecord && (
+                <span className="text-xs text-zinc-500 ml-auto shrink-0">{awayRecord}</span>
+              )}
+            </div>
+
+            {/* Home team */}
+            <div className="flex items-center gap-2">
+              {game.homeTeam.logoUrl && (
+                <img
+                  src={game.homeTeam.logoUrl}
+                  alt={`${game.homeTeam.canonicalName} logo`}
+                  className="w-7 h-7 object-contain shrink-0"
+                />
+              )}
+              <span className="font-bold text-base text-white">
+                {game.homeTeamRanking && game.homeTeamRanking <= 25 ? (
+                  <span className="text-orange-400">#{game.homeTeamRanking} </span>
+                ) : null}
+                {game.homeTeam.canonicalName}
+              </span>
+              {homeRecord && (
+                <span className="text-xs text-zinc-500 ml-auto shrink-0">{homeRecord}</span>
+              )}
+            </div>
+          </div>
         </div>
 
-        {/* Live score */}
+        {/* Live score block */}
         {isLive && ls && (
           <div className="bg-zinc-900 rounded-lg p-4">
             <div className="flex items-center justify-between mb-2">
@@ -80,7 +127,6 @@ export function GameDrawer({ game, watchScore, onClose }: GameDrawerProps) {
             <div className="flex justify-around text-center">
               <div>
                 <div className="text-xs text-zinc-400 mb-1">
-                  {game.awayTeamRanking ? `#${game.awayTeamRanking} ` : ""}
                   {game.awayTeam.canonicalName}
                 </div>
                 <div className="text-4xl font-bold tabular-nums">{ls.awayScore}</div>
@@ -88,7 +134,6 @@ export function GameDrawer({ game, watchScore, onClose }: GameDrawerProps) {
               <div className="flex items-center text-zinc-600 text-2xl">—</div>
               <div>
                 <div className="text-xs text-zinc-400 mb-1">
-                  {game.homeTeamRanking ? `#${game.homeTeamRanking} ` : ""}
                   {game.homeTeam.canonicalName}
                 </div>
                 <div className="text-4xl font-bold tabular-nums">{ls.homeScore}</div>
@@ -118,6 +163,46 @@ export function GameDrawer({ game, watchScore, onClose }: GameDrawerProps) {
                 </div>
               </div>
             )}
+
+            {/* Live why it matters */}
+            {game.liveContext?.whyItMatters && (
+              <p className="text-xs text-zinc-400 mt-3 pt-3 border-t border-zinc-800">
+                {game.liveContext.whyItMatters}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Pregame prediction block */}
+        {!isLive && game.pregamePrediction && (
+          <div className="bg-zinc-900 rounded-lg p-4">
+            <p className="text-xs text-zinc-500 font-semibold uppercase tracking-wider mb-3">
+              Pregame Preview
+              <span className="ml-2 text-zinc-700 normal-case font-normal tracking-normal">
+                ~ placeholder data
+              </span>
+            </p>
+            <div className="flex items-center gap-4 text-sm">
+              <div>
+                <div className="text-xs text-zinc-500 mb-0.5">Thrill Score</div>
+                <div className="text-lg font-bold text-orange-400">
+                  {game.pregamePrediction.thrillScore}
+                </div>
+              </div>
+              {(game.pregamePrediction.homeScore > 0 || game.pregamePrediction.awayScore > 0) && (
+                <div>
+                  <div className="text-xs text-zinc-500 mb-0.5">Predicted Final</div>
+                  <div className="text-base font-semibold text-zinc-200 tabular-nums">
+                    {game.awayTeam.canonicalName.split(" ")[0]} {game.pregamePrediction.awayScore}
+                    <span className="text-zinc-500 mx-1">–</span>
+                    {game.pregamePrediction.homeScore} {game.homeTeam.canonicalName.split(" ")[0]}
+                  </div>
+                </div>
+              )}
+            </div>
+            <p className="text-xs text-zinc-400 mt-3 pt-3 border-t border-zinc-800">
+              {game.pregamePrediction.whyItMatters}
+            </p>
           </div>
         )}
 
@@ -192,17 +277,6 @@ export function GameDrawer({ game, watchScore, onClose }: GameDrawerProps) {
               </div>
             ))}
           </div>
-        </div>
-
-        {/* Pregame context placeholder */}
-        <div className="border-t border-zinc-800 pt-4">
-          <p className="text-xs text-zinc-600 font-semibold mb-2 uppercase tracking-wider">
-            Pregame Context
-          </p>
-          <p className="text-xs text-zinc-700 italic">
-            Advanced stats context (BartTorvik / Haslametrics) available in Phase 2
-            after agent-assisted ingestion is set up.
-          </p>
         </div>
       </div>
     </div>

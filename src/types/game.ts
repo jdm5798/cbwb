@@ -76,4 +76,18 @@ export interface GameWithState {
   awayTeamRanking?: number | null;
   spread?: number | null;
   overUnder?: number | null;
+  // Team records — placeholder until BartTorvik/Haslametrics integration
+  homeTeamRecord?: { wins: number; losses: number } | null;
+  awayTeamRecord?: { wins: number; losses: number } | null;
+  // Pregame prediction — placeholder until BartTorvik/Haslametrics integration
+  pregamePrediction?: {
+    homeScore: number;
+    awayScore: number;
+    thrillScore: number; // 0-100
+    whyItMatters: string;
+  } | null;
+  // Live context — placeholder, currently driven by watchScore.explanation
+  liveContext?: {
+    whyItMatters: string;
+  } | null;
 }

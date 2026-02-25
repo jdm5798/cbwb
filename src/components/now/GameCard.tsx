@@ -13,26 +13,6 @@ interface GameCardProps {
   onClick: () => void;
 }
 
-function statusLabel(game: GameWithState): { text: string; color: string } {
-  switch (game.status) {
-    case "IN_PROGRESS":
-      return {
-        text: game.liveState
-          ? `${periodLabel(game.liveState.period)} · ${game.liveState.clockDisplay ?? ""}`
-          : "LIVE",
-        color: "text-green-400",
-      };
-    case "HALFTIME":
-      return { text: "Halftime", color: "text-yellow-400" };
-    case "FINAL":
-      return { text: "Final", color: "text-zinc-500" };
-    case "SCHEDULED":
-      return { text: formatTime(game.scheduledAt), color: "text-zinc-400" };
-    default:
-      return { text: game.status, color: "text-zinc-500" };
-  }
-}
-
 function periodLabel(period: number): string {
   if (period === 1) return "1st";
   if (period === 2) return "2nd";
@@ -48,17 +28,182 @@ function formatTime(iso: string): string {
   });
 }
 
-function formatRanking(rank: number | null | undefined, name: string): string {
-  if (rank && rank <= 25) return `#${rank} ${name}`;
-  return name;
+function formatRecord(record: { wins: number; losses: number } | null | undefined): string | null {
+  if (!record) return null;
+  return `${record.wins}-${record.losses}`;
 }
+
+// ---------------------------------------------------------------------------
+// TeamRow — logo + ranking + name + record (shared sub-component)
+// ---------------------------------------------------------------------------
+
+interface TeamRowProps {
+  name: string;
+  ranking?: number | null;
+  logoUrl?: string | null;
+  record?: { wins: number; losses: number } | null;
+  isHome?: boolean;
+}
+
+function TeamRow({ name, ranking, logoUrl, record, isHome }: TeamRowProps) {
+  const recordStr = formatRecord(record);
+
+  return (
+    <div className="flex items-center gap-2 min-w-0">
+      {/* Logo */}
+      <div className="shrink-0 w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center">
+        {logoUrl ? (
+          <img
+            src={logoUrl}
+            alt={`${name} logo`}
+            className="w-6 h-6 sm:w-8 sm:h-8 object-contain"
+          />
+        ) : (
+          <span className="text-xs font-bold text-zinc-500 bg-zinc-800 rounded-full w-6 h-6 flex items-center justify-center">
+            {name.charAt(0)}
+          </span>
+        )}
+      </div>
+
+      {/* Ranking + Name */}
+      <span className="font-semibold text-sm text-zinc-100 truncate min-w-0">
+        {ranking && ranking <= 25 ? (
+          <span className="text-orange-400 font-bold mr-0.5">#{ranking}</span>
+        ) : null}
+        {name}
+      </span>
+
+      {/* Record — hidden on mobile, visible sm+ */}
+      {recordStr && (
+        <span className={clsx(
+          "text-xs text-zinc-500 shrink-0 ml-auto",
+          isHome ? "" : ""
+        )}>
+          {recordStr}
+        </span>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// PregameSection
+// ---------------------------------------------------------------------------
+
+interface PregameSectionProps {
+  scheduledAt: string;
+  pregamePrediction: GameWithState["pregamePrediction"];
+  homeTeamName: string;
+  awayTeamName: string;
+}
+
+function PregameSection({
+  scheduledAt,
+  pregamePrediction,
+  homeTeamName,
+  awayTeamName,
+}: PregameSectionProps) {
+  // Short display name: first word of team name
+  const homeShort = homeTeamName.split(" ")[0];
+  const awayShort = awayTeamName.split(" ")[0];
+
+  return (
+    <div className="mt-3 pt-3 border-t border-zinc-800/60">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+        {/* Start time */}
+        <span data-testid="pregame-time" className="text-zinc-400 shrink-0">
+          {formatTime(scheduledAt)}
+        </span>
+
+        {pregamePrediction && (
+          <>
+            {/* Thrill score */}
+            <span className="text-zinc-600">·</span>
+            <span data-testid="thrill-score" className="shrink-0">
+              <span className="text-zinc-500">Thrill</span>{" "}
+              <span className="text-orange-400 font-semibold">
+                {pregamePrediction.thrillScore}
+              </span>
+            </span>
+
+            {/* Predicted score */}
+            {(pregamePrediction.homeScore > 0 || pregamePrediction.awayScore > 0) && (
+              <>
+                <span className="text-zinc-600">·</span>
+                <span data-testid="pregame-prediction" className="text-zinc-400 shrink-0 tabular-nums">
+                  <span className="text-zinc-300">{awayShort}</span>{" "}
+                  {pregamePrediction.awayScore}
+                  <span className="text-zinc-600 mx-1">–</span>
+                  {pregamePrediction.homeScore}{" "}
+                  <span className="text-zinc-300">{homeShort}</span>
+                </span>
+              </>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Why it matters */}
+      {pregamePrediction?.whyItMatters && (
+        <p className="text-xs text-zinc-500 mt-1.5 line-clamp-2">
+          {pregamePrediction.whyItMatters}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// LiveSection
+// ---------------------------------------------------------------------------
+
+interface LiveSectionProps {
+  liveState: NonNullable<GameWithState["liveState"]>;
+  liveContext: GameWithState["liveContext"];
+}
+
+function LiveSection({ liveState, liveContext }: LiveSectionProps) {
+  return (
+    <div className="mt-3 pt-3 border-t border-zinc-800/60">
+      <div className="flex items-center gap-3">
+        {/* Period + clock */}
+        <span
+          data-testid="live-period"
+          className="text-xs text-green-400 font-semibold shrink-0"
+        >
+          {periodLabel(liveState.period)}
+          {liveState.clockDisplay ? ` · ${liveState.clockDisplay}` : ""}
+        </span>
+
+        <span className="text-zinc-600 text-xs">·</span>
+
+        {/* Score */}
+        <span
+          data-testid="live-score"
+          className="text-sm font-bold tabular-nums text-white shrink-0"
+        >
+          {liveState.awayScore}
+          <span className="text-zinc-500 mx-1">–</span>
+          {liveState.homeScore}
+        </span>
+      </div>
+
+      {/* Live why it matters */}
+      {liveContext?.whyItMatters && (
+        <p className="text-xs text-zinc-500 mt-1.5 line-clamp-2">
+          {liveContext.whyItMatters}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// GameCard
+// ---------------------------------------------------------------------------
 
 export function GameCard({ game, watchScore, rank, isSelected, onClick }: GameCardProps) {
   const isLive = ["IN_PROGRESS", "HALFTIME"].includes(game.status);
-  const status = statusLabel(game);
-  const margin = game.liveState
-    ? Math.abs(game.liveState.homeScore - game.liveState.awayScore)
-    : null;
 
   return (
     <button
@@ -71,58 +216,52 @@ export function GameCard({ game, watchScore, rank, isSelected, onClick }: GameCa
         !isLive && "opacity-70"
       )}
     >
-      <div className="flex items-center gap-3">
-        {/* Rank */}
-        <span className="text-zinc-600 text-sm w-5 text-center font-mono">
-          {game.status !== "FINAL" ? rank : "—"}
-        </span>
-
-        {/* Score badge */}
-        <ScoreBadge score={watchScore.score} size="sm" />
-
-        {/* Game info */}
-        <div className="flex-1 min-w-0">
-          {/* Teams + score */}
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-sm text-zinc-100 truncate">
-              {formatRanking(game.awayTeamRanking, game.awayTeam.canonicalName)}
-              {" @ "}
-              {formatRanking(game.homeTeamRanking, game.homeTeam.canonicalName)}
-            </span>
-            {isLive && game.liveState && (
-              <span className="text-sm font-bold tabular-nums text-white shrink-0">
-                {game.liveState.awayScore}–{game.liveState.homeScore}
-              </span>
-            )}
-          </div>
-
-          {/* Status + explanation */}
-          <div className="flex items-center gap-2 mt-0.5">
-            <span className={clsx("text-xs shrink-0", status.color)}>
-              {status.text}
-            </span>
-            {(isLive || game.status === "SCHEDULED") && (
-              <span className="text-xs text-zinc-500 truncate">
-                · {watchScore.explanation}
-              </span>
-            )}
-          </div>
+      {/* ── Header: teams + TV channel ─────────────────────────────────── */}
+      <div className="flex items-start gap-3">
+        {/* Watch score badge + rank */}
+        <div className="flex flex-col items-center gap-1 shrink-0 pt-0.5">
+          <ScoreBadge score={watchScore.score} size="sm" />
+          {game.status !== "FINAL" && (
+            <span className="text-zinc-600 text-xs font-mono">{rank}</span>
+          )}
         </div>
 
-        {/* TV channel */}
+        {/* Team rows */}
+        <div className="flex-1 min-w-0 space-y-1.5">
+          <TeamRow
+            name={game.awayTeam.canonicalName}
+            ranking={game.awayTeamRanking}
+            logoUrl={game.awayTeam.logoUrl}
+            record={game.awayTeamRecord}
+          />
+          <TeamRow
+            name={game.homeTeam.canonicalName}
+            ranking={game.homeTeamRanking}
+            logoUrl={game.homeTeam.logoUrl}
+            record={game.homeTeamRecord}
+            isHome
+          />
+        </div>
+
+        {/* TV channel badge */}
         {game.tvNetwork && (
-          <span className="text-xs text-zinc-400 bg-zinc-800 rounded px-2 py-0.5 shrink-0">
+          <span className="text-xs text-zinc-400 bg-zinc-800 rounded px-2 py-0.5 shrink-0 self-start mt-0.5">
             {game.tvNetwork}
           </span>
         )}
-
-        {/* Close game indicator */}
-        {isLive && margin !== null && margin <= 5 && (
-          <span className="text-xs text-red-400 font-bold shrink-0">
-            {margin === 0 ? "TIE" : `±${margin}`}
-          </span>
-        )}
       </div>
+
+      {/* ── Status section ─────────────────────────────────────────────── */}
+      {isLive && game.liveState ? (
+        <LiveSection liveState={game.liveState} liveContext={game.liveContext} />
+      ) : game.status === "SCHEDULED" ? (
+        <PregameSection
+          scheduledAt={game.scheduledAt}
+          pregamePrediction={game.pregamePrediction}
+          homeTeamName={game.homeTeam.canonicalName}
+          awayTeamName={game.awayTeam.canonicalName}
+        />
+      ) : null}
     </button>
   );
 }

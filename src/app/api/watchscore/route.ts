@@ -3,7 +3,7 @@ import { EspnProvider } from "@/lib/providers/espn/EspnProvider";
 import { upsertGames, getGamesForDate } from "@/lib/db/games";
 import { computeWatchScore } from "@/lib/watchscore/calculator";
 import { prisma } from "@/lib/db/prisma";
-import { WatchScoreInput } from "@/types/watchscore";
+import { WatchScoreInput, WatchScoreResult } from "@/types/watchscore";
 import { GameWithState } from "@/types/game";
 
 const provider = new EspnProvider();
@@ -14,6 +14,55 @@ function getTodayDate(): string {
 
 function toEspnDateFormat(date: string): string {
   return date.replace(/-/g, "");
+}
+
+/**
+ * Enriches a game with placeholder data for fields that will eventually be
+ * powered by BartTorvik / Haslametrics. Pipelines are wired; data is placeholder.
+ */
+function enrichWithPlaceholders(
+  game: GameWithState,
+  watchScore: WatchScoreResult
+): GameWithState {
+  // Team records — placeholder until BartTorvik/Haslametrics integration
+  const homeTeamRecord = { wins: 0, losses: 0 };
+  const awayTeamRecord = { wins: 0, losses: 0 };
+
+  // Derive predicted scores from spread + overUnder when available
+  let pregamePrediction: GameWithState["pregamePrediction"] = null;
+  if (game.status === "SCHEDULED") {
+    if (game.spread != null && game.overUnder != null) {
+      const homeScore = Math.round((game.overUnder + game.spread) / 2);
+      const awayScore = Math.round((game.overUnder - game.spread) / 2);
+      pregamePrediction = {
+        homeScore,
+        awayScore,
+        thrillScore: Math.round(watchScore.score),
+        whyItMatters: watchScore.explanation,
+      };
+    } else {
+      // Generic placeholder when no odds data available
+      pregamePrediction = {
+        homeScore: 0,
+        awayScore: 0,
+        thrillScore: Math.round(watchScore.score),
+        whyItMatters: watchScore.explanation,
+      };
+    }
+  }
+
+  const liveContext =
+    game.status === "IN_PROGRESS" || game.status === "HALFTIME"
+      ? { whyItMatters: watchScore.explanation }
+      : null;
+
+  return {
+    ...game,
+    homeTeamRecord,
+    awayTeamRecord,
+    pregamePrediction,
+    liveContext,
+  };
 }
 
 function gameToWatchScoreInput(game: GameWithState): WatchScoreInput {
@@ -60,11 +109,12 @@ export async function GET(request: NextRequest) {
 
     const games = await getGamesForDate(date);
 
-    // Score all games
+    // Score all games and enrich with placeholder data
     const scored = games.map((game) => {
       const input = gameToWatchScoreInput(game);
       const watchScore = computeWatchScore(input);
-      return { game, watchScore };
+      const enrichedGame = enrichWithPlaceholders(game, watchScore);
+      return { game: enrichedGame, watchScore };
     });
 
     // Sort: live games first (by score desc), then scheduled by start time
