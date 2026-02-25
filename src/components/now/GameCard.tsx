@@ -95,6 +95,7 @@ interface PregameSectionProps {
   pregamePrediction: GameWithState["pregamePrediction"];
   homeTeamName: string;
   awayTeamName: string;
+  tvNetwork?: string | null;
 }
 
 function PregameSection({
@@ -102,6 +103,7 @@ function PregameSection({
   pregamePrediction,
   homeTeamName,
   awayTeamName,
+  tvNetwork,
 }: PregameSectionProps) {
   // Short display name: first word of team name
   const homeShort = homeTeamName.split(" ")[0];
@@ -109,38 +111,44 @@ function PregameSection({
 
   return (
     <div className="mt-3 pt-3 border-t border-zinc-800/60">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-        {/* Start time */}
-        <span data-testid="pregame-time" className="text-zinc-400 shrink-0">
-          {formatTime(scheduledAt)}
-        </span>
+      <div className="flex items-center justify-between gap-2">
+        {/* Left: start time + predicted score */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs min-w-0">
+          <span data-testid="pregame-time" className="text-zinc-400 shrink-0">
+            {formatTime(scheduledAt)}
+          </span>
 
-        {pregamePrediction && (
-          <>
-            {/* Thrill score */}
-            <span className="text-zinc-600">·</span>
-            <span data-testid="thrill-score" className="shrink-0">
+          {/* Predicted score */}
+          {pregamePrediction && (pregamePrediction.homeScore > 0 || pregamePrediction.awayScore > 0) && (
+            <>
+              <span className="text-zinc-600">·</span>
+              <span data-testid="pregame-prediction" className="text-zinc-400 shrink-0 tabular-nums">
+                <span className="text-zinc-300">{awayShort}</span>{" "}
+                {pregamePrediction.awayScore}
+                <span className="text-zinc-600 mx-1">–</span>
+                {pregamePrediction.homeScore}{" "}
+                <span className="text-zinc-300">{homeShort}</span>
+              </span>
+            </>
+          )}
+        </div>
+
+        {/* Right: thrill score + TV badge */}
+        <div className="flex items-center gap-2 shrink-0">
+          {pregamePrediction && (
+            <span data-testid="thrill-score" className="text-xs shrink-0">
               <span className="text-zinc-500">Thrill</span>{" "}
               <span className="text-orange-400 font-semibold">
                 {pregamePrediction.thrillScore}
               </span>
             </span>
-
-            {/* Predicted score */}
-            {(pregamePrediction.homeScore > 0 || pregamePrediction.awayScore > 0) && (
-              <>
-                <span className="text-zinc-600">·</span>
-                <span data-testid="pregame-prediction" className="text-zinc-400 shrink-0 tabular-nums">
-                  <span className="text-zinc-300">{awayShort}</span>{" "}
-                  {pregamePrediction.awayScore}
-                  <span className="text-zinc-600 mx-1">–</span>
-                  {pregamePrediction.homeScore}{" "}
-                  <span className="text-zinc-300">{homeShort}</span>
-                </span>
-              </>
-            )}
-          </>
-        )}
+          )}
+          {tvNetwork && (
+            <span className="text-xs text-zinc-400 bg-zinc-800 rounded px-2 py-0.5">
+              {tvNetwork}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Why it matters */}
@@ -160,32 +168,41 @@ function PregameSection({
 interface LiveSectionProps {
   liveState: NonNullable<GameWithState["liveState"]>;
   liveContext: GameWithState["liveContext"];
+  tvNetwork?: string | null;
 }
 
-function LiveSection({ liveState, liveContext }: LiveSectionProps) {
+function LiveSection({ liveState, liveContext, tvNetwork }: LiveSectionProps) {
   return (
     <div className="mt-3 pt-3 border-t border-zinc-800/60">
-      <div className="flex items-center gap-3">
-        {/* Period + clock */}
-        <span
-          data-testid="live-period"
-          className="text-xs text-green-400 font-semibold shrink-0"
-        >
-          {periodLabel(liveState.period)}
-          {liveState.clockDisplay ? ` · ${liveState.clockDisplay}` : ""}
-        </span>
+      <div className="flex items-center justify-between gap-2">
+        {/* Left: period + score */}
+        <div className="flex items-center gap-3">
+          <span
+            data-testid="live-period"
+            className="text-xs text-green-400 font-semibold shrink-0"
+          >
+            {periodLabel(liveState.period)}
+            {liveState.clockDisplay ? ` · ${liveState.clockDisplay}` : ""}
+          </span>
 
-        <span className="text-zinc-600 text-xs">·</span>
+          <span className="text-zinc-600 text-xs">·</span>
 
-        {/* Score */}
-        <span
-          data-testid="live-score"
-          className="text-sm font-bold tabular-nums text-white shrink-0"
-        >
-          {liveState.awayScore}
-          <span className="text-zinc-500 mx-1">–</span>
-          {liveState.homeScore}
-        </span>
+          <span
+            data-testid="live-score"
+            className="text-sm font-bold tabular-nums text-white shrink-0"
+          >
+            {liveState.awayScore}
+            <span className="text-zinc-500 mx-1">–</span>
+            {liveState.homeScore}
+          </span>
+        </div>
+
+        {/* Right: TV badge */}
+        {tvNetwork && (
+          <span className="text-xs text-zinc-400 bg-zinc-800 rounded px-2 py-0.5 shrink-0">
+            {tvNetwork}
+          </span>
+        )}
       </div>
 
       {/* Live why it matters */}
@@ -218,12 +235,9 @@ export function GameCard({ game, watchScore, rank, isSelected, onClick }: GameCa
     >
       {/* ── Header: teams + TV channel ─────────────────────────────────── */}
       <div className="flex items-start gap-3">
-        {/* Watch score badge + rank */}
-        <div className="flex flex-col items-center gap-1 shrink-0 pt-0.5">
+        {/* Watch score badge */}
+        <div className="flex flex-col items-center shrink-0 pt-0.5">
           <ScoreBadge score={watchScore.score} size="sm" />
-          {game.status !== "FINAL" && (
-            <span className="text-zinc-600 text-xs font-mono">{rank}</span>
-          )}
         </div>
 
         {/* Team rows */}
@@ -243,23 +257,18 @@ export function GameCard({ game, watchScore, rank, isSelected, onClick }: GameCa
           />
         </div>
 
-        {/* TV channel badge */}
-        {game.tvNetwork && (
-          <span className="text-xs text-zinc-400 bg-zinc-800 rounded px-2 py-0.5 shrink-0 self-start mt-0.5">
-            {game.tvNetwork}
-          </span>
-        )}
       </div>
 
       {/* ── Status section ─────────────────────────────────────────────── */}
       {isLive && game.liveState ? (
-        <LiveSection liveState={game.liveState} liveContext={game.liveContext} />
+        <LiveSection liveState={game.liveState} liveContext={game.liveContext} tvNetwork={game.tvNetwork} />
       ) : game.status === "SCHEDULED" ? (
         <PregameSection
           scheduledAt={game.scheduledAt}
           pregamePrediction={game.pregamePrediction}
           homeTeamName={game.homeTeam.canonicalName}
           awayTeamName={game.awayTeam.canonicalName}
+          tvNetwork={game.tvNetwork}
         />
       ) : null}
     </button>

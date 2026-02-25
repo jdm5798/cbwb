@@ -94,7 +94,7 @@ if DB data is <35s old, it is served directly without re-fetching ESPN.
 ### Pages & Components
 - `src/app/now/page.tsx` — main watchboard
 - `src/app/admin/page.tsx` — data status + weight tuning
-- `src/components/now/GameCard.tsx` — game list item (logos, rankings, records, pregame/live split)
+- `src/components/now/GameCard.tsx` — game list item (logos, rankings, records, pregame/live split); TV badge + thrill score in bottom-right of status section
 - `src/components/now/HeroCard.tsx` — featured top game
 - `src/components/now/GameDrawer.tsx` — detail slide-out panel
 - `src/components/now/GameList.tsx` — groups cards by status
@@ -217,6 +217,7 @@ vercel.com → cbwb project → Settings → Git → Connect `jdm5798/cbwb` → 
 
 | Date | Description |
 |---|---|
+| 2026-02-25 | GameCard tweaks: TV badge + thrill score moved to bottom-right of status section; rank number removed from left column |
 | 2026-02-25 | Game card redesign: logos, records, rankings, pregame/live split sections |
 | 2026-02-25 | Vitest test suite: 24 GameCard tests (TDD pattern established) |
 | 2026-02-25 | Deployed to Vercel + Neon PostgreSQL |
