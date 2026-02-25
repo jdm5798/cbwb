@@ -1,0 +1,215 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ────────────────────────────────────────────────────────────────
+// Teams
+// ────────────────────────────────────────────────────────────────
+
+model Team {
+  id            String   @id @default(cuid())
+  canonicalName String   @unique
+  aliases       String[]
+  conference    String?
+  espnId        String?  @unique
+  bartTorvikId  String?
+  logoUrl       String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  homeGames     Game[]              @relation("HomeTeam")
+  awayGames     Game[]              @relation("AwayTeam")
+  advancedStats AdvancedStatsTeam[]
+}
+
+// ────────────────────────────────────────────────────────────────
+// Games
+// ────────────────────────────────────────────────────────────────
+
+model Game {
+  id                String     @id @default(cuid())
+  espnId            String?    @unique
+  gameDate          String     // YYYY-MM-DD
+  scheduledAt       DateTime
+  homeTeamId        String
+  awayTeamId        String
+  tvNetwork         String?
+  homeTeamRanking   Int?       // AP/Coaches poll ranking at tip-off
+  awayTeamRanking   Int?
+  spread            Float?     // pregame spread (positive = home favored)
+  overUnder         Float?
+  status            GameStatus @default(SCHEDULED)
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  homeTeam     Team                 @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeam     Team                 @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  liveState    LiveGameState?
+  watchScores  WatchScoreSnapshot[]
+  alerts       AlertEvent[]
+
+  @@index([gameDate])
+  @@index([status])
+}
+
+enum GameStatus {
+  SCHEDULED
+  IN_PROGRESS
+  HALFTIME
+  FINAL
+  POSTPONED
+  CANCELLED
+}
+
+// ────────────────────────────────────────────────────────────────
+// Live Game State
+// ────────────────────────────────────────────────────────────────
+
+model LiveGameState {
+  id           String   @id @default(cuid())
+  gameId       String   @unique
+  homeScore    Int      @default(0)
+  awayScore    Int      @default(0)
+  period       Int      @default(1)
+  clockDisplay String?  // e.g. "5:32", "Halftime"
+  leadChanges  Int      @default(0)
+  winProbHome  Float?   // 0.0 to 1.0
+  possession   String?  // "home" | "away" | null
+  lastUpdated  DateTime @updatedAt
+
+  game         Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+}
+
+// ────────────────────────────────────────────────────────────────
+// Watch Score Snapshots
+// ────────────────────────────────────────────────────────────────
+
+model WatchScoreSnapshot {
+  id                  String   @id @default(cuid())
+  gameId              String
+  score               Float    // 0–100
+  factorContributions Json     // { closeness: 18.2, time_remaining: 15.0, ... }
+  explanation         String   // "Two-point game in final minutes + ranked matchup"
+  modelVersion        String   @default("watchscore_v1")
+  computedAt          DateTime @default(now())
+
+  game                Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@index([gameId, computedAt])
+}
+
+// ────────────────────────────────────────────────────────────────
+// Alert Events (Phase 2)
+// ────────────────────────────────────────────────────────────────
+
+model AlertEvent {
+  id               String    @id @default(cuid())
+  gameId           String
+  type             AlertType
+  delivered        Boolean   @default(false)
+  suppressed       Boolean   @default(false)
+  suppressedReason String?   // "rate_limit" | "duplicate" | etc.
+  payload          Json
+  createdAt        DateTime  @default(now())
+
+  game             Game      @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@index([gameId, type])
+  @@index([createdAt])
+}
+
+enum AlertType {
+  CLOSE_LATE
+  UPSET_BREWING
+  OVERTIME
+  LEAD_CHANGE_BURST
+}
+
+// ────────────────────────────────────────────────────────────────
+// Advanced Stats (Phase 2)
+// ────────────────────────────────────────────────────────────────
+
+model AdvancedStatsTeam {
+  id        String   @id @default(cuid())
+  teamId    String
+  provider  String   // "barttorvik" | "haslametrics" | "kenpom"
+  asOfDate  String   // YYYY-MM-DD
+  metrics   Json     // all fields from provider, stored as-is
+  createdAt DateTime @default(now())
+
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, provider, asOfDate])
+  @@index([provider, asOfDate])
+}
+
+// ────────────────────────────────────────────────────────────────
+// Agent Runs
+// ────────────────────────────────────────────────────────────────
+
+model AgentRun {
+  id          String      @id @default(cuid())
+  type        String      // "advanced_stats_ingest" | "storyline_digest" | "espn_ingest" | etc.
+  provider    String?     // "barttorvik" | "haslametrics" | "espn" | etc.
+  status      AgentStatus @default(RUNNING)
+  logs        Json        @default("[]") // array of log strings
+  summary     String?
+  startedAt   DateTime    @default(now())
+  completedAt DateTime?
+
+  @@index([type, startedAt])
+}
+
+enum AgentStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+  PARTIAL
+}
+
+// ────────────────────────────────────────────────────────────────
+// Odds (Phase 3)
+// ────────────────────────────────────────────────────────────────
+
+model OddsSnapshot {
+  id              String   @id @default(cuid())
+  gameId          String
+  book            String?
+  moneylineHome   Float?
+  moneylineAway   Float?
+  spreadHome      Float?
+  spreadAway      Float?
+  total           Float?
+  teamTotalHome   Float?
+  teamTotalAway   Float?
+  capturedAt      DateTime @default(now())
+
+  @@index([gameId, capturedAt])
+}
+
+model Bet {
+  id          String    @id @default(cuid())
+  placedAt    DateTime  @default(now())
+  gameId      String
+  marketType  String    // "moneyline" | "spread" | "total" | "team_total"
+  selection   String    // e.g. "home", "away", "over", "under"
+  odds        Float
+  units       Float
+  result      BetResult @default(OPEN)
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+enum BetResult {
+  OPEN
+  WIN
+  LOSS
+  PUSH
+}

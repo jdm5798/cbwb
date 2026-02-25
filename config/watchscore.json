@@ -1,0 +1,18 @@
+{
+  "model_version": "watchscore_v1",
+  "weights": {
+    "closeness": 0.28,
+    "time_remaining": 0.22,
+    "lead_changes": 0.15,
+    "upset_likelihood": 0.15,
+    "ranked_stakes": 0.12,
+    "tourney_implications": 0.08
+  },
+  "thresholds": {
+    "close_game_margin": 6,
+    "close_game_clock_seconds": 300,
+    "upset_win_prob_threshold": 0.60,
+    "lead_changes_burst_half": 8,
+    "blowout_margin": 25
+  }
+}
