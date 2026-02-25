@@ -133,22 +133,12 @@ function PregameSection({
           )}
         </div>
 
-        {/* Right: thrill score + TV badge */}
-        <div className="flex items-center gap-2 shrink-0">
-          {pregamePrediction && (
-            <span data-testid="thrill-score" className="text-xs shrink-0">
-              <span className="text-zinc-500">Thrill</span>{" "}
-              <span className="text-orange-400 font-semibold">
-                {pregamePrediction.thrillScore}
-              </span>
-            </span>
-          )}
-          {tvNetwork && (
-            <span className="text-xs text-zinc-400 bg-zinc-800 rounded px-2 py-0.5">
-              {tvNetwork}
-            </span>
-          )}
-        </div>
+        {/* Right: TV badge */}
+        {tvNetwork && (
+          <span className="text-xs text-zinc-400 bg-zinc-800 rounded px-2 py-0.5 shrink-0">
+            {tvNetwork}
+          </span>
+        )}
       </div>
 
       {/* Why it matters */}
@@ -235,10 +225,17 @@ export function GameCard({ game, watchScore, rank, isSelected, onClick }: GameCa
     >
       {/* ── Header: teams + TV channel ─────────────────────────────────── */}
       <div className="flex items-start gap-3">
-        {/* Watch score badge */}
-        <div className="flex flex-col items-center shrink-0 pt-0.5">
-          <ScoreBadge score={watchScore.score} size="sm" />
-        </div>
+        {/* Watch score badge (+ "Thrill Score" label for pregame) */}
+        {game.status === "SCHEDULED" && game.pregamePrediction ? (
+          <div data-testid="thrill-score" className="flex flex-col items-center gap-1 shrink-0 pt-0.5">
+            <ScoreBadge score={watchScore.score} size="sm" />
+            <span className="text-[10px] text-zinc-500 leading-none">Thrill Score</span>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center shrink-0 pt-0.5">
+            <ScoreBadge score={watchScore.score} size="sm" />
+          </div>
+        )}
 
         {/* Team rows */}
         <div className="flex-1 min-w-0 space-y-1.5">

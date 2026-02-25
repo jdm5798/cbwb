@@ -217,6 +217,7 @@ vercel.com → cbwb project → Settings → Git → Connect `jdm5798/cbwb` → 
 
 | Date | Description |
 |---|---|
+| 2026-02-25 | GameCard: "Thrill Score" label added below ScoreBadge for pregame cards; duplicate thrill score removed from status row |
 | 2026-02-25 | GameCard tweaks: TV badge + thrill score moved to bottom-right of status section; rank number removed from left column |
 | 2026-02-25 | Game card redesign: logos, records, rankings, pregame/live split sections |
 | 2026-02-25 | Vitest test suite: 24 GameCard tests (TDD pattern established) |
