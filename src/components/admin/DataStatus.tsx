@@ -17,7 +17,7 @@ export function DataStatus() {
     { refreshInterval: 60_000 }
   );
 
-  const { data: agentData } = useSWR<{ runs: Array<{ status: string; startedAt: string }> }>(
+  const { data: agentData } = useSWR<{ runs: Array<{ status: string; startedAt: string; type: string }> }>(
     "/api/admin/agent",
     fetcher,
     { refreshInterval: 30_000 }
