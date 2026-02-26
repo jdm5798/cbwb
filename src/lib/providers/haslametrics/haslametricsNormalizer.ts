@@ -1,4 +1,5 @@
 import * as cheerio from "cheerio";
+import { Element } from "domhandler";
 import { HaslametricsTeamStats } from "@/types/advancedStats";
 
 /**
@@ -48,7 +49,7 @@ export function normalizeHaslametrics(xml: string): HaslametricsTeamStats[] {
   const results: HaslametricsTeamStats[] = [];
 
   $("mr").each((_i, el) => {
-    const attrs = (el as cheerio.AnyTag).attribs as Record<string, string>;
+    const attrs = (el as Element).attribs as Record<string, string>;
 
     // Skip entries missing required fields
     const teamName = attrs["t"]?.trim();
