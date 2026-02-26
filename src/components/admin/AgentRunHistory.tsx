@@ -31,6 +31,7 @@ export function AgentRunHistory() {
     { refreshInterval: 15_000 }
   );
   const [triggering, setTriggering] = useState(false);
+  const [triggeringStats, setTriggeringStats] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
 
   async function triggerIngest() {
@@ -47,19 +48,42 @@ export function AgentRunHistory() {
     }
   }
 
+  async function triggerAdvancedStatsIngest() {
+    setTriggeringStats(true);
+    try {
+      await fetch("/api/admin/ingest/advanced-stats", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ providers: ["barttorvik", "haslametrics"] }),
+      });
+      await mutate();
+    } finally {
+      setTriggeringStats(false);
+    }
+  }
+
   const runs = data?.runs ?? [];
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-zinc-200">Agent Run History</h3>
-        <button
-          onClick={triggerIngest}
-          disabled={triggering}
-          className="text-xs bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-zinc-200 px-3 py-1 border border-zinc-700 rounded font-semibold"
-        >
-          {triggering ? "Fetching…" : "↻ Fetch ESPN Now"}
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={triggerAdvancedStatsIngest}
+            disabled={triggeringStats}
+            className="text-xs bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-orange-300 px-3 py-1 border border-zinc-700 rounded font-semibold"
+          >
+            {triggeringStats ? "Fetching Stats…" : "↻ Ingest Advanced Stats"}
+          </button>
+          <button
+            onClick={triggerIngest}
+            disabled={triggering}
+            className="text-xs bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-zinc-200 px-3 py-1 border border-zinc-700 rounded font-semibold"
+          >
+            {triggering ? "Fetching…" : "↻ Fetch ESPN Now"}
+          </button>
+        </div>
       </div>
 
       {runs.length === 0 && (

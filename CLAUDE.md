@@ -40,7 +40,7 @@ by excitement at the top; scheduled games show pregame context and predictions.
 | Hosting | Vercel (auto-deploys from GitHub `main`) |
 | Testing | Vitest + React Testing Library + jest-dom + jsdom |
 | AI | Anthropic SDK (Claude — future live summaries) |
-| Utilities | clsx, tailwind-merge |
+| Utilities | clsx, tailwind-merge, cheerio (HTML/XML parsing) |
 
 ---
 
@@ -125,9 +125,16 @@ if DB data is <35s old, it is served directly without re-fetching ESPN.
 - WatchScore algorithm with 6 factors (weights in `config/watchscore.json`)
 - Game card redesign: team logos, national rankings, records, TV badge,
   pregame vs live conditional sections
-- Admin page: data status, weight editor, manual ingest
-- Vitest test suite: 24 GameCard tests passing
+- Admin page: data status, weight editor, manual ingest, advanced stats ingest button
+- Vitest test suite: 67 tests passing (24 GameCard + 43 new Phase 2A tests)
 - Vercel production deployment with Neon PostgreSQL
+- **Phase 2A Advanced Stats Pipeline:**
+  - BartTorvik ingestion: `barttorvik.com/{YYYY}_team_results.json` (positional array format)
+    with Cloudflare fallback to cbbdata API (`CBBDATA_API_KEY` env var)
+  - Haslametrics ingestion: `haslametrics.com/ratings.xml` (Brotli-compressed XML, named attributes)
+  - Team name reconciliation: Levenshtein fuzzy matching (0.80 threshold, 0.95 auto-confirm)
+    with `TeamNameMapping` DB table for persistence and admin override
+  - `POST /api/admin/ingest/advanced-stats` endpoint with AgentRun tracking
 
 ### Placeholder Data (pending BartTorvik / Haslametrics integration)
 

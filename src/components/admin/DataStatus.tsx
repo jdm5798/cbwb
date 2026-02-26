@@ -31,6 +31,9 @@ export function DataStatus() {
     : 0;
 
   const lastRun = agentData?.runs?.[0];
+  const lastStatsRun = agentData?.runs?.find(
+    (r) => r.type === "advanced_stats_ingest"
+  );
 
   function timeAgo(iso: string | null | undefined): string {
     if (!iso) return "never";
@@ -62,9 +65,21 @@ export function DataStatus() {
       />
       <StatusCard
         label="Advanced Stats"
-        value="Phase 2"
-        meta="BartTorvik / Haslametrics — not yet ingested"
-        indicator="gray"
+        value={lastStatsRun ? (lastStatsRun.status ?? "—") : "Not ingested"}
+        meta={
+          lastStatsRun
+            ? `Last ingest ${timeAgo(lastStatsRun.startedAt)}`
+            : "Use ↻ Ingest Advanced Stats to populate"
+        }
+        indicator={
+          lastStatsRun?.status === "SUCCESS"
+            ? "green"
+            : lastStatsRun?.status === "PARTIAL"
+            ? "yellow"
+            : lastStatsRun?.status === "FAILED"
+            ? "red"
+            : "gray"
+        }
       />
     </div>
   );

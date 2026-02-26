@@ -26,6 +26,7 @@ model Team {
   homeGames     Game[]              @relation("HomeTeam")
   awayGames     Game[]              @relation("AwayTeam")
   advancedStats AdvancedStatsTeam[]
+  nameMapping   TeamNameMapping[]
 }
 
 // ────────────────────────────────────────────────────────────────
@@ -147,6 +148,28 @@ model AdvancedStatsTeam {
 
   @@unique([teamId, provider, asOfDate])
   @@index([provider, asOfDate])
+}
+
+// ────────────────────────────────────────────────────────────────
+// Team Name Mapping (Advanced Stats reconciliation)
+// ────────────────────────────────────────────────────────────────
+
+model TeamNameMapping {
+  id           String    @id @default(cuid())
+  externalName String
+  provider     String    // "barttorvik" | "haslametrics"
+  teamId       String
+  confidence   Float     @default(1.0) // 0.0–1.0; <0.8 flagged for admin review
+  confirmedAt  DateTime? // null = auto-matched; set when admin confirms
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  team         Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([externalName, provider])
+  @@index([provider])
+  @@index([teamId])
 }
 
 // ────────────────────────────────────────────────────────────────
