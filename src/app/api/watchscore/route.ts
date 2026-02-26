@@ -111,7 +111,7 @@ export async function GET(request: NextRequest) {
       if (!statsMap.has(row.teamId)) statsMap.set(row.teamId, {});
       const entry = statsMap.get(row.teamId)!;
       if (row.provider === "barttorvik" && !entry.barttorvik)
-        entry.barttorvik = row.metrics as BartTorvikTeamStats;
+        entry.barttorvik = row.metrics as unknown as BartTorvikTeamStats;
     }
 
     // Score all games and enrich with real advanced stats (falls back gracefully)
