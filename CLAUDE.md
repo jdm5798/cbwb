@@ -50,10 +50,15 @@ by excitement at the top; scheduled games show pregame context and predictions.
 ESPN API
   ↓  EspnProvider.fetchGames()          src/lib/providers/espn/EspnProvider.ts
   ↓  upsertGames()                      src/lib/db/games.ts
+BartTorvik / Haslametrics APIs
+  ↓  fetchBartTorvik() / fetchHaslametrics()
+  ↓  normalizeBartTorvik() / normalizeHaslametrics()
+  ↓  findBestMatch() → upsertAdvancedStats()   POST /api/admin/ingest/advanced-stats
 PostgreSQL (Neon / Docker)
   ↓  getGamesForDate()                  src/lib/db/games.ts
   ↓  computeWatchScore()                src/lib/watchscore/calculator.ts
-  ↓  enrichWithPlaceholders()           src/app/api/watchscore/route.ts
+  ↓  batch prefetch AdvancedStatsTeam   prisma.advancedStatsTeam.findMany()
+  ↓  enrichWithStats()                  src/app/api/watchscore/route.ts
   ↓  GET /api/watchscore
   ↓  useWatchScore() SWR hook           src/hooks/useWatchScore.ts
 React components                        src/components/now/
@@ -85,11 +90,21 @@ if DB data is <35s old, it is served directly without re-fetching ESPN.
 - `src/lib/watchscore/factors/` — closeness, timeRemaining, leadChanges, upsetLikelihood, rankedStakes, tourneyImplications
 - `config/watchscore.json` — factor weights and thresholds (editable via /admin)
 
+### Advanced Stats Pipeline (Phase 2A/2B)
+- `src/types/advancedStats.ts` — `BartTorvikTeamStats`, `HaslametricsTeamStats` types + Zod schemas
+- `src/lib/providers/barttorvik/` — `barttorvikClient.ts` (Cloudflare fallback), `barttorvikNormalizer.ts` (positional arrays)
+- `src/lib/providers/haslametrics/` — `haslametricsClient.ts` (Brotli XML), `haslametricsNormalizer.ts`
+- `src/lib/reconciliation/teamMatcher.ts` — `normalizeTeamName`, `matchScore`, `findBestMatch` (Levenshtein + prefix boost)
+- `src/lib/db/advancedStats.ts` — `upsertAdvancedStats`, `getAdvancedStatsForTeam`
+- `src/lib/db/teamNameMapping.ts` — `getUnconfirmedMappings`, `confirmMapping`, `overrideMapping`
+- `src/lib/watchscore/projectScore.ts` — `computeProjectedScores` (KenPom formula), `computeThrillScore`
+
 ### API Routes
-- `src/app/api/watchscore/route.ts` — main endpoint; scores + enriches all games
+- `src/app/api/watchscore/route.ts` — main endpoint; batch prefetches AdvancedStatsTeam + enriches all games
 - `src/app/api/games/route.ts` — raw game list
 - `src/app/api/games/[id]/route.ts` — single game
 - `src/app/api/admin/ingest/route.ts` — manual ESPN ingest trigger
+- `src/app/api/admin/ingest/advanced-stats/route.ts` — BartTorvik + Haslametrics ingest with AgentRun tracking
 
 ### Pages & Components
 - `src/app/now/page.tsx` — main watchboard
@@ -105,7 +120,12 @@ if DB data is <35s old, it is served directly without re-fetching ESPN.
 ### Tests
 - `vitest.config.ts` — jsdom environment, React plugin, `@/*` path alias
 - `src/test/setup.ts` — jest-dom matchers
-- `src/components/now/__tests__/GameCard.test.tsx` — 24 tests (all passing)
+- `src/components/now/__tests__/GameCard.test.tsx` — 24 tests
+- `src/lib/providers/barttorvik/__tests__/barttorvikNormalizer.test.ts` — 11 tests
+- `src/lib/providers/haslametrics/__tests__/haslametricsNormalizer.test.ts` — 15 tests
+- `src/lib/reconciliation/__tests__/teamMatcher.test.ts` — 25 tests (includes prefix boost)
+- `src/lib/watchscore/__tests__/projectScore.test.ts` — 12 tests
+- **Total: 87 tests, all passing**
 
 ### data-testid Reference (GameCard)
 | testid | element |
@@ -123,35 +143,30 @@ if DB data is <35s old, it is served directly without re-fetching ESPN.
 ### What's Live & Working
 - ESPN data ingestion (games, live scores, TV network, rankings, odds/spread)
 - WatchScore algorithm with 6 factors (weights in `config/watchscore.json`)
-- Game card redesign: team logos, national rankings, records, TV badge,
+- Game card redesign: team logos, national rankings, real W-L records, TV badge,
   pregame vs live conditional sections
-- Admin page: data status, weight editor, manual ingest, advanced stats ingest button
-- Vitest test suite: 67 tests passing (24 GameCard + 43 new Phase 2A tests)
+- Admin page: data status, weight editor, ESPN ingest, advanced stats ingest button
+- Vitest test suite: **87 tests passing** (5 test files)
 - Vercel production deployment with Neon PostgreSQL
-- **Phase 2A Advanced Stats Pipeline:**
-  - BartTorvik ingestion: `barttorvik.com/{YYYY}_team_results.json` (positional array format)
-    with Cloudflare fallback to cbbdata API (`CBBDATA_API_KEY` env var)
-  - Haslametrics ingestion: `haslametrics.com/ratings.xml` (Brotli-compressed XML, named attributes)
-  - Team name reconciliation: Levenshtein fuzzy matching (0.80 threshold, 0.95 auto-confirm)
-    with `TeamNameMapping` DB table for persistence and admin override
-  - `POST /api/admin/ingest/advanced-stats` endpoint with AgentRun tracking
+- **Phase 2A — Advanced Stats Ingestion Pipeline:**
+  - BartTorvik: `barttorvik.com/{YYYY}_team_results.json` (positional array, 64% match rate)
+    with Cloudflare detection + cbbdata API fallback (`CBBDATA_API_KEY` env var)
+  - Haslametrics: `haslametrics.com/ratings.xml` (Brotli-compressed XML, 60% match rate)
+  - Team reconciliation: Levenshtein + prefix boost fuzzy matching (0.80 threshold, 0.95 auto-confirm)
+    `TeamNameMapping` table persists mappings; unmatched flagged for admin review
+  - `POST /api/admin/ingest/advanced-stats` with AgentRun lifecycle tracking
+- **Phase 2B — Stats Wired into Game Cards:**
+  - `homeTeamRecord`/`awayTeamRecord`: real W-L from BartTorvik (null = graceful hide)
+  - `pregamePrediction.homeScore/awayScore`: KenPom formula — `adjO × (adjD/102) × avgTempo/100`
+  - `pregamePrediction.thrillScore`: `60% closeness + 40% barthag quality` (0–100)
+  - Batch prefetch: one `AdvancedStatsTeam.findMany()` per API call (not 72 sequential lookups)
 
-### Placeholder Data (pending BartTorvik / Haslametrics integration)
+### Remaining Placeholder Data
 
-These fields exist in `GameWithState` and render correctly in the UI,
-but are populated with placeholder values in `enrichWithPlaceholders()`
-in `src/app/api/watchscore/route.ts`:
-
-| Field | Current placeholder | Real source (future) |
+| Field | Current value | Real source (future phase) |
 |---|---|---|
-| `homeTeamRecord` / `awayTeamRecord` | `{ wins: 0, losses: 0 }` | BartTorvik / ESPN |
-| `pregamePrediction.homeScore/awayScore` | Derived from ESPN spread+overUnder; `0` if no odds | BartTorvik predicted score |
-| `pregamePrediction.thrillScore` | Mirrors `watchScore.score` | BartTorvik / Haslametrics |
-| `pregamePrediction.whyItMatters` | Mirrors `watchScore.explanation` | Claude API summary |
-| `liveContext.whyItMatters` | Mirrors `watchScore.explanation` | Claude API live summary |
-
-The DB schema supports `AdvancedStatsTeam` (provider, asOfDate, metrics JSON)
-ready for BartTorvik/Haslametrics ingestion.
+| `pregamePrediction.whyItMatters` | `watchScore.explanation` | Claude API pregame summary |
+| `liveContext.whyItMatters` | `watchScore.explanation` | Claude API live summary |
 
 ---
 
@@ -212,8 +227,8 @@ vercel.com → cbwb project → Settings → Git → Connect `jdm5798/cbwb` → 
 ## What's Next / Known Gaps
 
 - [ ] Connect Vercel GitHub integration for true auto-deploy (Vercel dashboard — not yet done)
-- [ ] BartTorvik / Haslametrics integration → real team records, predicted scores, thrill score
-- [ ] Claude API integration for live and pregame "why it matters" summaries
+- [ ] Claude API integration for live and pregame "why it matters" summaries (Phase 2C)
+- [ ] Expand team name matching for low-major programs (259 BT / 234 Hasl unmatched — low-major schools with no DB entry)
 - [ ] Tournament bubble tracking / conference standings
 - [ ] Push or in-app notifications for high watch-score games
 - [ ] HeroCard and GameDrawer deeper redesign (baseline done, future iterations planned)
@@ -224,10 +239,9 @@ vercel.com → cbwb project → Settings → Git → Connect `jdm5798/cbwb` → 
 
 | Date | Description |
 |---|---|
-| 2026-02-25 | GameCard: "Thrill Score" label added below ScoreBadge for pregame cards; duplicate thrill score removed from status row |
-| 2026-02-25 | GameCard tweaks: TV badge + thrill score moved to bottom-right of status section; rank number removed from left column |
-| 2026-02-25 | Game card redesign: logos, records, rankings, pregame/live split sections |
-| 2026-02-25 | Vitest test suite: 24 GameCard tests (TDD pattern established) |
-| 2026-02-25 | Deployed to Vercel + Neon PostgreSQL |
-| 2026-02-25 | Added 4 placeholder fields to `GameWithState`; `enrichWithPlaceholders()` in watchscore API |
-| 2026-02-25 | Created `CLAUDE.md` for cross-device context |
+| 2026-02-26 | Phase 2B: Wire advanced stats into game cards — real W-L records, KenPom projected scores, thrill score formula; 87 tests |
+| 2026-02-26 | Fix team name matching: prefix boost (≥2-word guard) + VCU/Miami FL/OH aliases; BT 29%→64%, Hasl 36%→60% |
+| 2026-02-26 | Phase 2A: BartTorvik + Haslametrics ingestion pipeline; TeamNameMapping model; admin UI button |
+| 2026-02-25 | GameCard: "Thrill Score" label added below ScoreBadge; TV badge + thrill moved to bottom-right |
+| 2026-02-25 | Game card redesign: logos, records, rankings, pregame/live split sections; 24 GameCard tests |
+| 2026-02-25 | Deployed to Vercel + Neon PostgreSQL; CLAUDE.md created |
