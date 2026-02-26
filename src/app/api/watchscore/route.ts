@@ -32,9 +32,17 @@ function enrichWithStats(
   const homeBt = statsMap.get(game.homeTeam.id)?.barttorvik ?? null;
   const awayBt = statsMap.get(game.awayTeam.id)?.barttorvik ?? null;
 
-  // Records: real wins/losses from BartTorvik, or null (GameCard hides null gracefully)
-  const homeTeamRecord = homeBt ? { wins: homeBt.wins, losses: homeBt.losses } : null;
-  const awayTeamRecord = awayBt ? { wins: awayBt.wins, losses: awayBt.losses } : null;
+  // Records: BartTorvik preferred, ESPN record as fallback
+  const homeTeamRecord = homeBt
+    ? { wins: homeBt.wins, losses: homeBt.losses }
+    : (game.homeTeamEspnRecord ?? null);
+  const awayTeamRecord = awayBt
+    ? { wins: awayBt.wins, losses: awayBt.losses }
+    : (game.awayTeamEspnRecord ?? null);
+
+  // BartTorvik T-Rank (analytical rank, null if no match)
+  const homeBtRank = homeBt?.trank ?? null;
+  const awayBtRank = awayBt?.trank ?? null;
 
   let pregamePrediction: GameWithState["pregamePrediction"] = null;
   if (game.status === "SCHEDULED") {
@@ -53,7 +61,7 @@ function enrichWithStats(
       ? { whyItMatters: watchScore.explanation }
       : null;
 
-  return { ...game, homeTeamRecord, awayTeamRecord, pregamePrediction, liveContext };
+  return { ...game, homeTeamRecord, awayTeamRecord, homeBtRank, awayBtRank, pregamePrediction, liveContext };
 }
 
 function gameToWatchScoreInput(game: GameWithState): WatchScoreInput {

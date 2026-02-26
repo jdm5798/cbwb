@@ -39,17 +39,17 @@ function formatRecord(record: { wins: number; losses: number } | null | undefine
 
 interface TeamRowProps {
   name: string;
-  ranking?: number | null;
+  ranking?: number | null;   // AP/Coaches poll rank
+  btRank?: number | null;    // BartTorvik T-Rank
   logoUrl?: string | null;
   record?: { wins: number; losses: number } | null;
-  isHome?: boolean;
 }
 
-function TeamRow({ name, ranking, logoUrl, record, isHome }: TeamRowProps) {
+function TeamRow({ name, ranking, btRank, logoUrl, record }: TeamRowProps) {
   const recordStr = formatRecord(record);
 
   return (
-    <div className="flex items-center gap-2 min-w-0">
+    <div className="flex items-center gap-2 min-w-0 w-full">
       {/* Logo */}
       <div className="shrink-0 w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center">
         {logoUrl ? (
@@ -65,7 +65,7 @@ function TeamRow({ name, ranking, logoUrl, record, isHome }: TeamRowProps) {
         )}
       </div>
 
-      {/* Ranking + Name */}
+      {/* AP Rank + Name */}
       <span className="font-semibold text-sm text-zinc-100 truncate min-w-0">
         {ranking && ranking <= 25 ? (
           <span className="text-orange-400 font-bold mr-0.5">#{ranking}</span>
@@ -73,15 +73,19 @@ function TeamRow({ name, ranking, logoUrl, record, isHome }: TeamRowProps) {
         {name}
       </span>
 
-      {/* Record — hidden on mobile, visible sm+ */}
-      {recordStr && (
-        <span className={clsx(
-          "text-xs text-zinc-500 shrink-0 ml-auto",
-          isHome ? "" : ""
-        )}>
-          {recordStr}
-        </span>
-      )}
+      {/* BT Rank + Record — right-aligned */}
+      <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+        {btRank != null && (
+          <span data-testid="bt-rank" className="text-[10px] text-zinc-600 tabular-nums">
+            T{btRank}
+          </span>
+        )}
+        {recordStr && (
+          <span data-testid="team-record" className="text-xs text-zinc-500 tabular-nums">
+            {recordStr}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
@@ -242,15 +246,16 @@ export function GameCard({ game, watchScore, rank, isSelected, onClick }: GameCa
           <TeamRow
             name={game.awayTeam.canonicalName}
             ranking={game.awayTeamRanking}
+            btRank={game.awayBtRank}
             logoUrl={game.awayTeam.logoUrl}
-            record={game.awayTeamRecord}
+            record={game.awayTeamRecord ?? game.awayTeamEspnRecord}
           />
           <TeamRow
             name={game.homeTeam.canonicalName}
             ranking={game.homeTeamRanking}
+            btRank={game.homeBtRank}
             logoUrl={game.homeTeam.logoUrl}
-            record={game.homeTeamRecord}
-            isHome
+            record={game.homeTeamRecord ?? game.homeTeamEspnRecord}
           />
         </div>
 

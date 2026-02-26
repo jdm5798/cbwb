@@ -106,6 +106,19 @@ function normalizeTeam(competitor: AnyObj): CanonicalTeam {
     competitor?.curatedRank?.current ?? team?.rank ?? null;
   const ranking = rawRanking && rawRanking <= 25 ? rawRanking : null;
 
+  // W-L record from ESPN competitor.records array (type "total" entry)
+  const records: AnyObj[] = competitor?.records ?? [];
+  const totalRecord = records.find(
+    (r: AnyObj) => r.type === "total" || r.abbreviation === "Total"
+  ) ?? records[0];
+  let record: { wins: number; losses: number } | null = null;
+  if (totalRecord?.summary && typeof totalRecord.summary === "string") {
+    const parts = totalRecord.summary.split("-");
+    const wins = parseInt(parts[0], 10);
+    const losses = parseInt(parts[1], 10);
+    if (!isNaN(wins) && !isNaN(losses)) record = { wins, losses };
+  }
+
   return {
     externalId: String(team?.id ?? ""),
     name: team?.displayName ?? team?.name ?? "Unknown",
@@ -114,6 +127,7 @@ function normalizeTeam(competitor: AnyObj): CanonicalTeam {
     logoUrl: team?.logo ?? undefined,
     ranking,
     conference: team?.conferenceId ?? undefined,
+    record,
   };
 }
 

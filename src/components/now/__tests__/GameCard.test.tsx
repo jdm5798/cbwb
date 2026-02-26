@@ -158,6 +158,90 @@ describe("GameCard — always-visible elements", () => {
 });
 
 // ---------------------------------------------------------------------------
+// 3e — Team records: fallback + BT rank
+// ---------------------------------------------------------------------------
+
+describe("GameCard — team records and BT rank", () => {
+  it("falls back to ESPN record when BartTorvik record is null", () => {
+    render(
+      <GameCard
+        {...makeSelectedProps({
+          homeTeamRecord: null,
+          awayTeamRecord: null,
+          homeTeamEspnRecord: { wins: 14, losses: 10 },
+          awayTeamEspnRecord: { wins: 19, losses: 5 },
+        })}
+      />
+    );
+    expect(screen.getByText("14-10")).toBeInTheDocument();
+    expect(screen.getByText("19-5")).toBeInTheDocument();
+  });
+
+  it("hides record slot when both BartTorvik and ESPN records are null", () => {
+    render(
+      <GameCard
+        {...makeSelectedProps({
+          homeTeamRecord: null,
+          awayTeamRecord: null,
+          homeTeamEspnRecord: null,
+          awayTeamEspnRecord: null,
+        })}
+      />
+    );
+    const records = screen.queryAllByTestId("team-record");
+    expect(records).toHaveLength(0);
+  });
+
+  it("prefers BartTorvik record over ESPN record when both exist", () => {
+    render(
+      <GameCard
+        {...makeSelectedProps({
+          homeTeamRecord: { wins: 18, losses: 7 },
+          homeTeamEspnRecord: { wins: 17, losses: 7 },
+        })}
+      />
+    );
+    expect(screen.getByText("18-7")).toBeInTheDocument();
+    // ESPN record (different) should NOT appear
+    expect(screen.queryByText("17-7")).not.toBeInTheDocument();
+  });
+
+  it("renders BT rank when provided", () => {
+    render(
+      <GameCard
+        {...makeSelectedProps({
+          homeBtRank: 14,
+          awayBtRank: 8,
+        })}
+      />
+    );
+    const btRanks = screen.getAllByTestId("bt-rank");
+    expect(btRanks[0].textContent).toBe("T8");
+    expect(btRanks[1].textContent).toBe("T14");
+  });
+
+  it("does not render BT rank when not provided", () => {
+    render(<GameCard {...makeSelectedProps({ homeBtRank: null, awayBtRank: null })} />);
+    expect(screen.queryAllByTestId("bt-rank")).toHaveLength(0);
+  });
+
+  it("renders both AP rank and BT rank when both exist", () => {
+    render(
+      <GameCard
+        {...makeSelectedProps({
+          awayTeamRanking: 5,
+          awayBtRank: 8,
+        })}
+      />
+    );
+    expect(screen.getByText(/#5/)).toBeInTheDocument();
+    const btRanks = screen.getAllByTestId("bt-rank");
+    const awayBtRank = btRanks.find((el) => el.textContent === "T8");
+    expect(awayBtRank).toBeDefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 3b — Pre-game card (status = SCHEDULED)
 // ---------------------------------------------------------------------------
 

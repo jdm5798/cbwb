@@ -53,6 +53,10 @@ export async function upsertGames(games: CanonicalGame[]): Promise<void> {
         awayTeamRanking: game.awayTeam.ranking ?? null,
         spread: game.spread ?? null,
         overUnder: game.overUnder ?? null,
+        homeEspnWins: game.homeTeam.record?.wins ?? null,
+        homeEspnLosses: game.homeTeam.record?.losses ?? null,
+        awayEspnWins: game.awayTeam.record?.wins ?? null,
+        awayEspnLosses: game.awayTeam.record?.losses ?? null,
         updatedAt: new Date(),
       },
       create: {
@@ -66,6 +70,10 @@ export async function upsertGames(games: CanonicalGame[]): Promise<void> {
         awayTeamRanking: game.awayTeam.ranking ?? null,
         spread: game.spread ?? null,
         overUnder: game.overUnder ?? null,
+        homeEspnWins: game.homeTeam.record?.wins ?? null,
+        homeEspnLosses: game.homeTeam.record?.losses ?? null,
+        awayEspnWins: game.awayTeam.record?.wins ?? null,
+        awayEspnLosses: game.awayTeam.record?.losses ?? null,
         status: game.status,
       },
     });
@@ -137,6 +145,14 @@ export async function getGamesForDate(date: string): Promise<GameWithState[]> {
     awayTeamRanking: row.awayTeamRanking ?? null,
     spread: row.spread ?? null,
     overUnder: row.overUnder ?? null,
+    homeTeamEspnRecord:
+      row.homeEspnWins != null && row.homeEspnLosses != null
+        ? { wins: row.homeEspnWins, losses: row.homeEspnLosses }
+        : null,
+    awayTeamEspnRecord:
+      row.awayEspnWins != null && row.awayEspnLosses != null
+        ? { wins: row.awayEspnWins, losses: row.awayEspnLosses }
+        : null,
     liveState: row.liveState
       ? {
           homeScore: row.liveState.homeScore,
@@ -186,6 +202,14 @@ export async function getGameById(id: string): Promise<GameWithState | null> {
     awayTeamRanking: row.awayTeamRanking ?? null,
     spread: row.spread ?? null,
     overUnder: row.overUnder ?? null,
+    homeTeamEspnRecord:
+      row.homeEspnWins != null && row.homeEspnLosses != null
+        ? { wins: row.homeEspnWins, losses: row.homeEspnLosses }
+        : null,
+    awayTeamEspnRecord:
+      row.awayEspnWins != null && row.awayEspnLosses != null
+        ? { wins: row.awayEspnWins, losses: row.awayEspnLosses }
+        : null,
     liveState: row.liveState
       ? {
           homeScore: row.liveState.homeScore,

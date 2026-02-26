@@ -45,6 +45,10 @@ model Game {
   awayTeamRanking   Int?
   spread            Float?     // pregame spread (positive = home favored)
   overUnder         Float?
+  homeEspnWins      Int?       // W-L from ESPN at time of last ingest
+  homeEspnLosses    Int?
+  awayEspnWins      Int?
+  awayEspnLosses    Int?
   status            GameStatus @default(SCHEDULED)
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt

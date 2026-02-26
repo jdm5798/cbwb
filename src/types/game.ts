@@ -14,6 +14,7 @@ export interface CanonicalTeam {
   logoUrl?: string;
   ranking?: number | null; // AP/Coaches poll ranking, null if unranked
   conference?: string;
+  record?: { wins: number; losses: number } | null; // ESPN W-L record
 }
 
 export interface CanonicalLiveState {
@@ -76,10 +77,16 @@ export interface GameWithState {
   awayTeamRanking?: number | null;
   spread?: number | null;
   overUnder?: number | null;
-  // Team records — placeholder until BartTorvik/Haslametrics integration
+  // Team records — BartTorvik preferred, ESPN as fallback
   homeTeamRecord?: { wins: number; losses: number } | null;
   awayTeamRecord?: { wins: number; losses: number } | null;
-  // Pregame prediction — placeholder until BartTorvik/Haslametrics integration
+  // Raw ESPN records stored at ingest time (used as fallback when BartTorvik has no match)
+  homeTeamEspnRecord?: { wins: number; losses: number } | null;
+  awayTeamEspnRecord?: { wins: number; losses: number } | null;
+  // BartTorvik T-Rank (analytical rank, will eventually be replaced by own ranking)
+  homeBtRank?: number | null;
+  awayBtRank?: number | null;
+  // Pregame prediction
   pregamePrediction?: {
     homeScore: number;
     awayScore: number;
