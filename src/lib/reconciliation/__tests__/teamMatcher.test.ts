@@ -36,6 +36,18 @@ describe("normalizeTeamName", () => {
     expect(normalizeTeamName("VT")).toBe("virginia tech");
   });
 
+  it("expands 'VCU' to 'virginia commonwealth'", () => {
+    expect(normalizeTeamName("VCU")).toBe("virginia commonwealth");
+  });
+
+  it("expands 'Miami FL' to 'miami'", () => {
+    expect(normalizeTeamName("Miami FL")).toBe("miami");
+  });
+
+  it("expands 'Miami OH' to 'miami ohio'", () => {
+    expect(normalizeTeamName("Miami OH")).toBe("miami ohio");
+  });
+
   it("returns an empty string for an empty input", () => {
     expect(normalizeTeamName("")).toBe("");
   });
@@ -78,5 +90,27 @@ describe("matchScore", () => {
 
   it("handles whitespace variants: 'Iowa St.' vs 'Iowa State'", () => {
     expect(matchScore("Iowa St.", "Iowa State")).toBeGreaterThanOrEqual(0.8);
+  });
+
+  // Prefix boost tests — ESPN DB names include mascots, BartTorvik uses short names
+  it("prefix boost: 'Texas Tech' vs 'Texas Tech Red Raiders' >= 0.85", () => {
+    expect(matchScore("Texas Tech", "Texas Tech Red Raiders")).toBeGreaterThanOrEqual(0.85);
+  });
+
+  it("prefix boost: 'Iowa State' vs 'Iowa State Cyclones' >= 0.85", () => {
+    expect(matchScore("Iowa State", "Iowa State Cyclones")).toBeGreaterThanOrEqual(0.85);
+  });
+
+  it("prefix boost: 'Utah State' vs 'Utah State Aggies' >= 0.85", () => {
+    expect(matchScore("Utah State", "Utah State Aggies")).toBeGreaterThanOrEqual(0.85);
+  });
+
+  it("no prefix boost for single-word names: 'Iowa' vs 'Iowa State' < 0.85", () => {
+    // Guard against 'Iowa' incorrectly matching 'Iowa State' — they are different teams
+    expect(matchScore("Iowa", "Iowa State")).toBeLessThan(0.85);
+  });
+
+  it("no prefix boost for single-word names: 'Florida' vs 'Florida State' < 0.85", () => {
+    expect(matchScore("Florida", "Florida State")).toBeLessThan(0.85);
   });
 });

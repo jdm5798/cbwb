@@ -25,6 +25,9 @@ const KNOWN_ALIASES: Record<string, string> = {
   fau: "florida atlantic",
   wku: "western kentucky",
   odu: "old dominion",
+  vcu: "virginia commonwealth",
+  "miami fl": "miami",
+  "miami oh": "miami ohio",
 };
 
 // ────────────────────────────────────────────────────────────────
@@ -91,6 +94,14 @@ function levenshtein(a: string, b: string): number {
 /**
  * Returns a similarity score 0–1 between two team name strings.
  * 1.0 = identical after normalization. Higher = more similar.
+ *
+ * Prefix boost: if the shorter name (≥2 words) is a word-boundary prefix of the
+ * longer, return 0.85–0.95 instead of a low Levenshtein score. This handles
+ * ESPN-ingested team names that include mascots:
+ *   "Texas Tech" vs "Texas Tech Red Raiders" → ~0.90
+ *   "Iowa State" vs "Iowa State Cyclones"    → ~0.91
+ * The 2-word guard prevents single-word prefix false positives
+ * (e.g., "Iowa" must NOT get a high score against "Iowa State").
  */
 export function matchScore(a: string, b: string): number {
   const na = normalizeTeamName(a);
@@ -98,6 +109,14 @@ export function matchScore(a: string, b: string): number {
 
   if (na === nb) return 1.0;
   if (!na || !nb) return 0.0;
+
+  // Prefix boost — only when shorter name has ≥2 words (avoids "Iowa" → "Iowa State")
+  const [shorter, longer] = na.length <= nb.length ? [na, nb] : [nb, na];
+  const shorterWords = shorter.split(" ").length;
+  if (shorterWords >= 2 && longer.startsWith(shorter + " ")) {
+    // 0.85 base + up to 0.10 bonus based on coverage ratio
+    return 0.85 + 0.1 * (shorter.length / longer.length);
+  }
 
   const maxLen = Math.max(na.length, nb.length);
   const dist = levenshtein(na, nb);
