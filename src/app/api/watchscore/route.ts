@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { EspnProvider } from "@/lib/providers/espn/EspnProvider";
 import { upsertGames, getGamesForDate } from "@/lib/db/games";
 import { computeWatchScore } from "@/lib/watchscore/calculator";
+import { computeProjectedScores, computeThrillScore } from "@/lib/watchscore/projectScore";
 import { prisma } from "@/lib/db/prisma";
 import { WatchScoreInput, WatchScoreResult } from "@/types/watchscore";
 import { GameWithState } from "@/types/game";
+import { BartTorvikTeamStats } from "@/types/advancedStats";
 
 const provider = new EspnProvider();
 
@@ -16,39 +18,34 @@ function toEspnDateFormat(date: string): string {
   return date.replace(/-/g, "");
 }
 
-/**
- * Enriches a game with placeholder data for fields that will eventually be
- * powered by BartTorvik / Haslametrics. Pipelines are wired; data is placeholder.
- */
-function enrichWithPlaceholders(
-  game: GameWithState,
-  watchScore: WatchScoreResult
-): GameWithState {
-  // Team records — placeholder until BartTorvik/Haslametrics integration
-  const homeTeamRecord = { wins: 0, losses: 0 };
-  const awayTeamRecord = { wins: 0, losses: 0 };
+type StatsEntry = { barttorvik?: BartTorvikTeamStats };
 
-  // Derive predicted scores from spread + overUnder when available
+/**
+ * Enriches a game with real advanced stats data from the pre-loaded statsMap.
+ * Falls back gracefully when no stats exist for a team (null record, watchScore thrill).
+ */
+function enrichWithStats(
+  game: GameWithState,
+  watchScore: WatchScoreResult,
+  statsMap: Map<string, StatsEntry>
+): GameWithState {
+  const homeBt = statsMap.get(game.homeTeam.id)?.barttorvik ?? null;
+  const awayBt = statsMap.get(game.awayTeam.id)?.barttorvik ?? null;
+
+  // Records: real wins/losses from BartTorvik, or null (GameCard hides null gracefully)
+  const homeTeamRecord = homeBt ? { wins: homeBt.wins, losses: homeBt.losses } : null;
+  const awayTeamRecord = awayBt ? { wins: awayBt.wins, losses: awayBt.losses } : null;
+
   let pregamePrediction: GameWithState["pregamePrediction"] = null;
   if (game.status === "SCHEDULED") {
-    if (game.spread != null && game.overUnder != null) {
-      const homeScore = Math.round((game.overUnder + game.spread) / 2);
-      const awayScore = Math.round((game.overUnder - game.spread) / 2);
-      pregamePrediction = {
-        homeScore,
-        awayScore,
-        thrillScore: Math.round(watchScore.score),
-        whyItMatters: watchScore.explanation,
-      };
-    } else {
-      // Generic placeholder when no odds data available
-      pregamePrediction = {
-        homeScore: 0,
-        awayScore: 0,
-        thrillScore: Math.round(watchScore.score),
-        whyItMatters: watchScore.explanation,
-      };
-    }
+    const hasStats = homeBt && awayBt;
+    const { homeScore, awayScore } = hasStats
+      ? computeProjectedScores(homeBt, awayBt)
+      : { homeScore: 0, awayScore: 0 };
+    const thrillScore = hasStats
+      ? computeThrillScore(homeBt, awayBt, homeScore, awayScore)
+      : Math.round(watchScore.score);
+    pregamePrediction = { homeScore, awayScore, thrillScore, whyItMatters: watchScore.explanation };
   }
 
   const liveContext =
@@ -56,13 +53,7 @@ function enrichWithPlaceholders(
       ? { whyItMatters: watchScore.explanation }
       : null;
 
-  return {
-    ...game,
-    homeTeamRecord,
-    awayTeamRecord,
-    pregamePrediction,
-    liveContext,
-  };
+  return { ...game, homeTeamRecord, awayTeamRecord, pregamePrediction, liveContext };
 }
 
 function gameToWatchScoreInput(game: GameWithState): WatchScoreInput {
@@ -109,11 +100,25 @@ export async function GET(request: NextRequest) {
 
     const games = await getGamesForDate(date);
 
-    // Score all games and enrich with placeholder data
+    // Batch prefetch advanced stats for all teams in today's games (one DB query)
+    const allTeamIds = games.flatMap((g) => [g.homeTeam.id, g.awayTeam.id]);
+    const statsRows = await prisma.advancedStatsTeam.findMany({
+      where: { teamId: { in: allTeamIds } },
+      orderBy: { asOfDate: "desc" },
+    });
+    const statsMap = new Map<string, StatsEntry>();
+    for (const row of statsRows) {
+      if (!statsMap.has(row.teamId)) statsMap.set(row.teamId, {});
+      const entry = statsMap.get(row.teamId)!;
+      if (row.provider === "barttorvik" && !entry.barttorvik)
+        entry.barttorvik = row.metrics as BartTorvikTeamStats;
+    }
+
+    // Score all games and enrich with real advanced stats (falls back gracefully)
     const scored = games.map((game) => {
       const input = gameToWatchScoreInput(game);
       const watchScore = computeWatchScore(input);
-      const enrichedGame = enrichWithPlaceholders(game, watchScore);
+      const enrichedGame = enrichWithStats(game, watchScore, statsMap);
       return { game: enrichedGame, watchScore };
     });
 
