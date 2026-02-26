@@ -109,7 +109,7 @@ if DB data is <35s old, it is served directly without re-fetching ESPN.
 ### Pages & Components
 - `src/app/now/page.tsx` — main watchboard
 - `src/app/admin/page.tsx` — data status + weight tuning
-- `src/components/now/GameCard.tsx` — game list item (logos, rankings, records, pregame/live split); TV badge + thrill score in bottom-right of status section
+- `src/components/now/GameCard.tsx` — game list item (logos, AP+BT rankings, records, pregame/live split); records use BartTorvik → ESPN fallback; BT T-Rank shown as gray `T{N}` label
 - `src/components/now/HeroCard.tsx` — featured top game
 - `src/components/now/GameDrawer.tsx` — detail slide-out panel
 - `src/components/now/GameList.tsx` — groups cards by status
@@ -120,12 +120,12 @@ if DB data is <35s old, it is served directly without re-fetching ESPN.
 ### Tests
 - `vitest.config.ts` — jsdom environment, React plugin, `@/*` path alias
 - `src/test/setup.ts` — jest-dom matchers
-- `src/components/now/__tests__/GameCard.test.tsx` — 24 tests
+- `src/components/now/__tests__/GameCard.test.tsx` — 30 tests
 - `src/lib/providers/barttorvik/__tests__/barttorvikNormalizer.test.ts` — 11 tests
 - `src/lib/providers/haslametrics/__tests__/haslametricsNormalizer.test.ts` — 15 tests
 - `src/lib/reconciliation/__tests__/teamMatcher.test.ts` — 25 tests (includes prefix boost)
 - `src/lib/watchscore/__tests__/projectScore.test.ts` — 12 tests
-- **Total: 87 tests, all passing**
+- **Total: 93 tests, all passing**
 
 ### data-testid Reference (GameCard)
 | testid | element |
@@ -135,6 +135,8 @@ if DB data is <35s old, it is served directly without re-fetching ESPN.
 | `pregame-time` | formatted start time |
 | `pregame-prediction` | predicted score display |
 | `thrill-score` | pregame thrill score number |
+| `bt-rank` | BartTorvik T-Rank label (`T{N}`) per team row |
+| `team-record` | W-L record per team row |
 
 ---
 
@@ -156,10 +158,12 @@ if DB data is <35s old, it is served directly without re-fetching ESPN.
     `TeamNameMapping` table persists mappings; unmatched flagged for admin review
   - `POST /api/admin/ingest/advanced-stats` with AgentRun lifecycle tracking
 - **Phase 2B — Stats Wired into Game Cards:**
-  - `homeTeamRecord`/`awayTeamRecord`: real W-L from BartTorvik (null = graceful hide)
+  - `homeTeamRecord`/`awayTeamRecord`: BartTorvik W-L preferred, ESPN record as fallback
+  - `homeBtRank`/`awayBtRank`: BartTorvik T-Rank shown as gray `T{N}` label alongside AP poll rank
   - `pregamePrediction.homeScore/awayScore`: KenPom formula — `adjO × (adjD/102) × avgTempo/100`
   - `pregamePrediction.thrillScore`: `60% closeness + 40% barthag quality` (0–100)
   - Batch prefetch: one `AdvancedStatsTeam.findMany()` per API call (not 72 sequential lookups)
+  - ESPN W-L records parsed from `competitor.records` and stored in `Game` table (migration `20260226154818`)
 
 ### Remaining Placeholder Data
 
@@ -239,6 +243,8 @@ vercel.com → cbwb project → Settings → Git → Connect `jdm5798/cbwb` → 
 
 | Date | Description |
 |---|---|
+| 2026-02-26 | Records + BT rank: ESPN record fallback, BartTorvik T-Rank display, `add_espn_records` migration; 93 tests |
+| 2026-02-26 | Fix Vercel build: prisma generate in build script; cheerio Element type fix; DataStatus type fix |
 | 2026-02-26 | Phase 2B: Wire advanced stats into game cards — real W-L records, KenPom projected scores, thrill score formula; 87 tests |
 | 2026-02-26 | Fix team name matching: prefix boost (≥2-word guard) + VCU/Miami FL/OH aliases; BT 29%→64%, Hasl 36%→60% |
 | 2026-02-26 | Phase 2A: BartTorvik + Haslametrics ingestion pipeline; TeamNameMapping model; admin UI button |
