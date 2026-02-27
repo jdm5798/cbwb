@@ -69,7 +69,7 @@ describe("normalizeBartTorvik", () => {
 
   it("skips entries with a non-string team name", () => {
     const bad = [[...sampleData[0]]];
-    bad[0][1] = null; // corrupt team name
+    (bad[0] as (string | number | null)[])[1] = null; // corrupt team name
     const result = normalizeBartTorvik(bad);
     expect(result).toHaveLength(0);
   });
