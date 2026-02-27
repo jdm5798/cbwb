@@ -239,11 +239,13 @@ export function GameCard({ game, watchScore, rank, isSelected, onClick }: GameCa
             }
             size="sm"
           />
-          {(isLive || game.status === "SCHEDULED") && (
-            <span className="text-[10px] text-zinc-500 leading-none text-center">
-              {isLive ? "Live Thrill Score" : "Projected Thrill Score"}
-            </span>
-          )}
+          <span className="text-[10px] text-zinc-500 leading-none text-center">
+            {isLive
+              ? "Live Thrill Score"
+              : game.status === "SCHEDULED"
+              ? "Projected Thrill Score"
+              : "Watch Score"}
+          </span>
         </div>
 
         {/* Team rows */}

@@ -107,12 +107,13 @@ export async function POST(request: NextRequest) {
     }
 
     const totalSkipped = btSkipped + haslSkipped;
-    // PARTIAL if more than 10% of teams are unmatched — signals a structural issue
+    // PARTIAL if >45% of teams are unmatched — signals a structural issue.
+    // ~36–40% unmatched is expected (low-major programs not in our team database).
     const totalAttempted = btCount + btSkipped + haslCount + haslSkipped;
     const unmatched_pct = totalAttempted > 0 ? totalSkipped / totalAttempted : 0;
-    const status = unmatched_pct > 0.15 ? "PARTIAL" : "SUCCESS";
+    const status = unmatched_pct > 0.45 ? "PARTIAL" : "SUCCESS";
 
-    const summary = `BT: ${btCount} teams, Hasl: ${haslCount} teams, ${totalSkipped} unmatched.`;
+    const summary = `BT: ${btCount} upserted / ${btSkipped} skipped, Hasl: ${haslCount} upserted / ${haslSkipped} skipped. ${Math.round(unmatched_pct * 100)}% unmatched (low-major programs not in team database).`;
 
     await prisma.agentRun.update({
       where: { id: run.id },

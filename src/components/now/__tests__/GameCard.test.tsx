@@ -362,6 +362,44 @@ describe("GameCard — live state (IN_PROGRESS)", () => {
 });
 
 // ---------------------------------------------------------------------------
+// 3f — Final card (status = FINAL)
+// ---------------------------------------------------------------------------
+
+describe("GameCard — final state (FINAL)", () => {
+  const finalProps = makeSelectedProps({
+    status: "FINAL",
+    liveState: {
+      homeScore: 72,
+      awayScore: 68,
+      period: 2,
+      clockDisplay: "Final",
+      leadChanges: 5,
+      winProbHome: 1,
+      possession: null,
+    },
+    pregamePrediction: null,
+    liveContext: null,
+  });
+
+  it("shows the thrill-score badge using watchScore.score", () => {
+    render(<GameCard {...finalProps} />);
+    const thrill = screen.getByTestId("thrill-score");
+    expect(thrill.textContent).toContain("82");
+  });
+
+  it("labels the final badge as Watch Score", () => {
+    render(<GameCard {...finalProps} />);
+    const thrill = screen.getByTestId("thrill-score");
+    expect(thrill.textContent).toContain("Watch Score");
+  });
+
+  it("does NOT show a pregame time", () => {
+    render(<GameCard {...finalProps} />);
+    expect(screen.queryByTestId("pregame-time")).not.toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 3d — Visual / selection state
 // ---------------------------------------------------------------------------
 
