@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { sortGames, type SortKey } from "../page";
+import { sortGames, type SortKey } from "../sortGames";
 import type { GameWithState } from "@/types/game";
 import type { WatchScoreResult } from "@/types/watchscore";
 
