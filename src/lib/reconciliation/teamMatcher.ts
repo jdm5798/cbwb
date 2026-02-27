@@ -183,6 +183,14 @@ export async function findBestMatch(
     console.warn(
       `[teamMatcher] No match (score<${MATCH_THRESHOLD}) for "${externalName}" (${provider})`
     );
+    // Persist best guess for manual review (confirmedAt=null keeps it in the export list).
+    if (best) {
+      await prisma.teamNameMapping.upsert({
+        where: { externalName_provider: { externalName, provider } },
+        update: { teamId: best.teamId, confidence: best.confidence },
+        create: { externalName, provider, teamId: best.teamId, confidence: best.confidence, confirmedAt: null },
+      });
+    }
     return null;
   }
 
