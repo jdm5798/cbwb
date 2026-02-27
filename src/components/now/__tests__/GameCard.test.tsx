@@ -66,7 +66,7 @@ function makeGame(overrides: Partial<GameWithState> = {}): GameWithState {
     pregamePrediction: {
       homeScore: 68,
       awayScore: 72,
-      thrillScore: 82,
+      thrillScore: 75,
       whyItMatters: "Top-10 matchup with tournament implications on the line.",
     },
     liveContext: null,
@@ -272,10 +272,16 @@ describe("GameCard — pre-game state (SCHEDULED)", () => {
     expect(predicted.textContent).toContain("68");
   });
 
-  it("shows the pregame thrill score", () => {
+  it("shows the pregame thrill score from pregamePrediction", () => {
     render(<GameCard {...makeSelectedProps()} />);
     const thrill = screen.getByTestId("thrill-score");
-    expect(thrill.textContent).toContain("82");
+    expect(thrill.textContent).toContain("75");
+  });
+
+  it("labels the pregame badge as Projected Thrill Score", () => {
+    render(<GameCard {...makeSelectedProps()} />);
+    const thrill = screen.getByTestId("thrill-score");
+    expect(thrill.textContent).toContain("Projected Thrill Score");
   });
 
   it("shows the why-it-matters text", () => {
@@ -340,6 +346,18 @@ describe("GameCard — live state (IN_PROGRESS)", () => {
   it("does NOT show pregame start time", () => {
     render(<GameCard {...liveProps} />);
     expect(screen.queryByTestId("pregame-time")).not.toBeInTheDocument();
+  });
+
+  it("shows the live thrill score using watchScore.score", () => {
+    render(<GameCard {...liveProps} />);
+    const thrill = screen.getByTestId("thrill-score");
+    expect(thrill.textContent).toContain("82");
+  });
+
+  it("labels the live badge as Live Thrill Score", () => {
+    render(<GameCard {...liveProps} />);
+    const thrill = screen.getByTestId("thrill-score");
+    expect(thrill.textContent).toContain("Live Thrill Score");
   });
 });
 

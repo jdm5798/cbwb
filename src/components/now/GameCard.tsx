@@ -229,17 +229,22 @@ export function GameCard({ game, watchScore, rank, isSelected, onClick }: GameCa
     >
       {/* ── Header: teams + TV channel ─────────────────────────────────── */}
       <div className="flex items-start gap-3">
-        {/* Watch score badge (+ "Thrill Score" label for pregame) */}
-        {game.status === "SCHEDULED" && game.pregamePrediction ? (
-          <div data-testid="thrill-score" className="flex flex-col items-center gap-1 shrink-0 pt-0.5">
-            <ScoreBadge score={watchScore.score} size="sm" />
-            <span className="text-[10px] text-zinc-500 leading-none">Thrill Score</span>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center shrink-0 pt-0.5">
-            <ScoreBadge score={watchScore.score} size="sm" />
-          </div>
-        )}
+        {/* Thrill score badge */}
+        <div data-testid="thrill-score" className="flex flex-col items-center gap-1 shrink-0 pt-0.5">
+          <ScoreBadge
+            score={
+              game.status === "SCHEDULED" && game.pregamePrediction
+                ? game.pregamePrediction.thrillScore
+                : watchScore.score
+            }
+            size="sm"
+          />
+          {(isLive || game.status === "SCHEDULED") && (
+            <span className="text-[10px] text-zinc-500 leading-none text-center">
+              {isLive ? "Live Thrill Score" : "Projected Thrill Score"}
+            </span>
+          )}
+        </div>
 
         {/* Team rows */}
         <div className="flex-1 min-w-0 space-y-1.5">
